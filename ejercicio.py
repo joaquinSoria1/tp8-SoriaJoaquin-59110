@@ -48,12 +48,51 @@ if uploaded_file is not None:
         else:
             product_data = data[(data["Producto"] == product) & (data["Sucursal"] == selected_location)]
         
-        avg_price = (product_data["Ingreso_total"] / product_data["Unidades_vendidas"]).mean()
+        # Convertir fechas y ordenar datos
+        product_data['Fecha'] = pd.to_datetime(product_data['Año'].astype(str) + '-' + 
+                                             product_data['Mes'].astype(str) + '-01')
+        product_data = product_data.sort_values('Fecha')
         
-        margins = (product_data["Ingreso_total"] - product_data["Costo_total"]) / product_data["Ingreso_total"]
-        avg_margin = margins.mean()
+        # Calcular métricas base
+        product_data['precio'] = product_data['Ingreso_total'] / product_data['Unidades_vendidas']
+        product_data['margen'] = (product_data['Ingreso_total'] - product_data['Costo_total']) / product_data['Ingreso_total']
         
-        total_units = product_data["Unidades_vendidas"].sum()
+        # Calcular promedios actuales
+        avg_price = product_data['precio'].mean()
+        avg_margin = product_data['margen'].mean()
+        total_units = product_data['Unidades_vendidas'].sum()
+
+        # Agrupar por año-mes para cálculos más precisos
+        monthly_data = product_data.groupby(['Año', 'Mes']).agg({
+            'Ingreso_total': 'sum',
+            'Unidades_vendidas': 'sum',
+            'Costo_total': 'sum'
+        }).reset_index()
+
+        # Calcular métricas mensuales
+        monthly_data['precio'] = monthly_data['Ingreso_total'] / monthly_data['Unidades_vendidas']
+        monthly_data['margen'] = (monthly_data['Ingreso_total'] - monthly_data['Costo_total']) / monthly_data['Ingreso_total']
+
+        # Obtener promedios del primer y último año
+        first_year_data = monthly_data[monthly_data['Año'] == 2020]
+        last_year_data = monthly_data[monthly_data['Año'] == 2024]
+        
+        first_price = first_year_data['precio'].mean()
+        last_price = last_year_data['precio'].mean()
+        
+        first_margin = first_year_data['margen'].mean()
+        last_margin = last_year_data['margen'].mean()
+        
+        first_units = first_year_data['Unidades_vendidas'].mean()
+        last_units = last_year_data['Unidades_vendidas'].mean()
+
+        # Calcular variaciones usando promedios mensuales
+        def calc_growth_rate(start_val, end_val):
+            return np.float64(((end_val / start_val) ** (1/4) - 1) * 100)
+
+        price_change = calc_growth_rate(first_price, last_price)
+        margin_change = calc_growth_rate(first_margin, last_margin)
+        units_change = calc_growth_rate(first_units, last_units)
 
         with st.container():
             st.header(product)
@@ -61,9 +100,9 @@ if uploaded_file is not None:
             metrics_col, graph_col = st.columns([1, 2])
             
             with metrics_col:
-                st.metric("Precio Promedio", f"${avg_price:,.0f}", "29.57%")
-                st.metric("Margen Promedio", f"{avg_margin*100:.0f}%", "-0.27%")
-                st.metric("Unidades Vendidas", f"{total_units:,.0f}", "9.98%")
+                st.metric("Precio Promedio", f"${avg_price:,.0f}", f"{price_change:,.2f}%")
+                st.metric("Margen Promedio", f"{avg_margin*100:.0f}%", f"{margin_change:,.2f}%")
+                st.metric("Unidades Vendidas", f"{total_units:,.0f}", f"{units_change:,.2f}%")
             
             with graph_col:
                 fig, ax = plt.subplots(figsize=(10, 6))
