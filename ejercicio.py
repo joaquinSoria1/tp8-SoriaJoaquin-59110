@@ -31,7 +31,7 @@ if uploaded_file is not None:
     
     with st.sidebar:
         st.markdown("## Seleccionar Sucursal")
-        sucursales_unicas = ["Todas"] + sorted(data["Sucursal"].unique().tolist(), reverse=True)
+        sucursales_unicas = ["Todas"] + sorted(data["Sucursal"].unique().tolist())
         selected_location = st.selectbox("", 
                                        options=sucursales_unicas,
                                        label_visibility="collapsed")
